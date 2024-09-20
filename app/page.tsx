@@ -1,101 +1,206 @@
-import Image from "next/image";
+'use client'
+import React, { useRef, useState, useEffect } from 'react'
+import { Button } from "@/components/ui/button"
 
-export default function Home() {
+interface Box {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+interface ExtractedImage {
+  dataUrl: string
+  width: number
+  height: number
+}
+
+export default function ImageManipulator() {
+  const [boxes, setBoxes] = useState<Box[]>([
+    { x: 50, y: 50, width: 100, height: 100 },
+    { x: 200, y: 50, width: 100, height: 100 }
+  ])
+  const [draggingIndex, setDraggingIndex] = useState<number | null>(null)
+  const [extractedImages, setExtractedImages] = useState<ExtractedImage[]>([])
+  const [imageLoaded, setImageLoaded] = useState(false)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const imageRef = useRef<HTMLImageElement>(null)
+
+  useEffect(() => {
+    if (imageLoaded) {
+      drawBoxes()
+    }
+  }, [imageLoaded, boxes])
+
+  const drawBoxes = () => {
+    if (canvasRef.current && imageRef.current) {
+      const ctx = canvasRef.current.getContext('2d')
+      if (ctx) {
+        ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height)
+        ctx.drawImage(imageRef.current, 0, 0, canvasRef.current.width, canvasRef.current.height)
+        boxes.forEach((box) => {
+          ctx.strokeStyle = 'red'
+          ctx.lineWidth = 2
+          ctx.strokeRect(box.x, box.y, box.width, box.height)
+          // Remove the fill to avoid coloring the rectangles
+          // ctx.fillStyle = 'rgba(255, 0, 0, 0.2)'
+          // ctx.fillRect(box.x, box.y, box.width, box.height)
+        })
+      }
+    }
+  }
+
+  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const rect = canvasRef.current?.getBoundingClientRect()
+    if (rect) {
+      const x = e.clientX - rect.left
+      const y = e.clientY - rect.top
+      const index = boxes.findIndex(box => 
+        x >= box.x && x <= box.x + box.width && 
+        y >= box.y && y <= box.y + box.height
+      )
+      if (index !== -1) {
+        setDraggingIndex(index)
+      }
+    }
+  }
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (draggingIndex !== null) {
+      const rect = canvasRef.current?.getBoundingClientRect()
+      if (rect) {
+        const x = e.clientX - rect.left
+        const y = e.clientY - rect.top
+        setBoxes(prevBoxes => prevBoxes.map((box, index) => 
+          index === draggingIndex ? { ...box, x: x - box.width / 2, y: y - box.height / 2 } : box
+        ))
+      }
+    }
+  }
+
+  const handleMouseUp = () => {
+    setDraggingIndex(null)
+  }
+
+  const extractImages = () => {
+    if (imageRef.current && canvasRef.current) {
+      const imgWidth = imageRef.current.naturalWidth
+      const imgHeight = imageRef.current.naturalHeight
+      const canvasWidth = canvasRef.current.width
+      const canvasHeight = canvasRef.current.height
+
+      const scaleX = imgWidth / canvasWidth
+      const scaleY = imgHeight / canvasHeight
+
+      const tempCanvas = document.createElement('canvas')
+      tempCanvas.width = imgWidth
+      tempCanvas.height = imgHeight
+      const tempCtx = tempCanvas.getContext('2d')
+      if (tempCtx) {
+        tempCtx.drawImage(imageRef.current, 0, 0, imgWidth, imgHeight)
+        const extractedImgs = boxes.map(box => {
+          const sx = box.x * scaleX
+          const sy = box.y * scaleY
+          const sWidth = box.width * scaleX
+          const sHeight = box.height * scaleY
+          const imageData = tempCtx.getImageData(sx, sy, sWidth, sHeight)
+          const canvas = document.createElement('canvas')
+          canvas.width = sWidth
+          canvas.height = sHeight
+          const context = canvas.getContext('2d')
+          if (context) {
+            context.putImageData(imageData, 0, 0)
+            const dataUrl = canvas.toDataURL()
+            return {
+              dataUrl: dataUrl,
+              width: sWidth,
+              height: sHeight
+            }
+          }
+          return {
+            dataUrl: '',
+            width: sWidth,
+            height: sHeight
+          }
+        })
+        setExtractedImages(extractedImgs)
+      }
+    }
+  }
+
+  const addTextOverlay = async () => {
+    const updatedImages = await Promise.all(extractedImages.map(async (imgData, index) => {
+      return new Promise<ExtractedImage>((resolve) => {
+        const img = new Image()
+        img.src = imgData.dataUrl
+        const canvas = document.createElement('canvas')
+        canvas.width = imgData.width
+        canvas.height = imgData.height
+        const ctx = canvas.getContext('2d')
+        img.onload = () => {
+          if (ctx) {
+            ctx.drawImage(img, 0, 0)
+            ctx.font = '20px Arial'
+            ctx.fillStyle = 'black'
+            ctx.textAlign = 'center'
+            ctx.fillText(`Image ${index + 1}`, canvas.width / 2, 30)
+            const newDataUrl = canvas.toDataURL()
+            resolve({
+              dataUrl: newDataUrl,
+              width: imgData.width,
+              height: imgData.height
+            })
+          } else {
+            resolve(imgData)
+          }
+        }
+      })
+    }))
+    setExtractedImages(updatedImages)
+  }
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
+    <div className="flex flex-col items-center space-y-4 p-4">
+      <div className="relative">
+        <img
+          ref={imageRef}
+          src="/img.png" // Ensure the path is correct
+          alt="Sample Image"
+          onLoad={() => {
+            setImageLoaded(true)
+            if (canvasRef.current && imageRef.current) {
+              const canvas = canvasRef.current
+              const image = imageRef.current
+              canvas.width = 400 // Set desired canvas width
+              canvas.height = 300 // Set desired canvas height
+              drawBoxes()
+            }
+          }}
+          style={{ display: 'none' }} // Hide the image element
         />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+        <canvas
+          ref={canvasRef}
+          width={400}
+          height={300}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          className="border border-gray-300"
+        />
+      </div>
+      <Button onClick={extractImages}>Extract Images</Button>
+      <Button onClick={addTextOverlay}>Add Text Overlay</Button>
+      <div className="flex space-x-4">
+        {extractedImages.map((imgData, index) => (
+          <img
+            key={index}
+            src={imgData.dataUrl}
+            width={imgData.width}
+            height={imgData.height}
+            className="border border-gray-300"
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+        ))}
+      </div>
     </div>
-  );
+  )
 }
