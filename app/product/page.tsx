@@ -98,7 +98,7 @@ useEffect(() => {
 
     fabricCanvas.renderAll();
   };
-  
+
   const createVerticalCenterLine = (fabricCanvas: Canvas) => {
     const canvasCenterX = fabricCanvas.getWidth() / 2;
 
