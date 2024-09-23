@@ -126,6 +126,14 @@ const FabricCanvas: React.FC = () => {
     return dottedRect;
   };
 
+  const bringToFront = (object: any, fabricCanvas: Canvas | null) => {
+    if (fabricCanvas && object) {
+      fabricCanvas.remove(object); // Remove the object first
+      fabricCanvas.add(object);    // Add it back to the canvas, which places it on top
+      fabricCanvas.renderAll();    // Re-render the canvas
+    }
+  };
+
   const addImageToCanvas = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
       Array.from(event.target.files).forEach((file) => {
@@ -139,11 +147,11 @@ const FabricCanvas: React.FC = () => {
               top: 100,
               selectable: true,
             });
-
+  
             if (canvas) {
               const scaleFactor = (canvas.height * 0.4) / imgElement.height;
               imgInstance.scale(scaleFactor);
-
+  
               if (dottedRect) {
                 const dottedRectBounds = {
                   left: dottedRect.left!,
@@ -151,10 +159,10 @@ const FabricCanvas: React.FC = () => {
                   right: dottedRect.left! + dottedRect.width!,
                   bottom: dottedRect.top! + dottedRect.height!,
                 };
-
+  
                 const imgWidth = imgInstance.width! * imgInstance.scaleX!;
                 const imgHeight = imgInstance.height! * imgInstance.scaleY!;
-
+  
                 imgInstance.set({
                   left: Math.max(
                     dottedRectBounds.left,
@@ -166,9 +174,14 @@ const FabricCanvas: React.FC = () => {
                   ),
                 });
               }
-
+  
               canvas.add(imgInstance);
               canvas.setActiveObject(imgInstance);
+  
+              // Use bringToFront utility function to bring circle and rectangle to the front
+              bringToFront(circle, canvas);
+              bringToFront(rectangle, canvas);
+  
               canvas.renderAll();
             }
           };
