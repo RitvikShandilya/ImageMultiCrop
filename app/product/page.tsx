@@ -50,7 +50,7 @@ const FabricCanvas: React.FC = () => {
       fabricCanvas.add(rectObj);
       setCircle(circleObj);
       setRectangle(rectObj);
-
+      fabricCanvas.on("object:moving", () => highlightCenterLines(fabricCanvas));
       const handleKeyDown = (event: KeyboardEvent) => {
         if (event.key === "Backspace" || event.key === "Delete") {
           const activeObject = fabricCanvas.getActiveObject();
@@ -70,6 +70,28 @@ const FabricCanvas: React.FC = () => {
     }
   }, []);
 
+  const highlightCenterLines = (fabricCanvas: Canvas) => {
+    const canvasCenterX = fabricCanvas.getWidth() / 2;
+    const canvasCenterY = fabricCanvas.getHeight() / 2;
+
+    fabricCanvas.forEachObject((obj) => {
+      if (obj instanceof FabricImage) {
+        const objCenterX = obj.left! + (obj.width! * obj.scaleX!) / 2;
+        const objCenterY = obj.top! + (obj.height! * obj.scaleY!) / 2;
+
+        if (Math.abs(objCenterX - canvasCenterX) < 5) {
+          obj.set({ left: canvasCenterX - (obj.width! * obj.scaleX!) / 2 });
+        }
+
+        if (Math.abs(objCenterY - canvasCenterY) < 5) {
+          obj.set({ top: canvasCenterY - (obj.height! * obj.scaleY!) / 2 });
+        }
+      }
+    });
+
+    fabricCanvas.renderAll();
+  };
+  
   const createVerticalCenterLine = (fabricCanvas: Canvas) => {
     const canvasCenterX = fabricCanvas.getWidth() / 2;
 
