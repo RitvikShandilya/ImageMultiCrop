@@ -12,6 +12,13 @@ const FabricCanvas: React.FC = () => {
   const [circle, setCircle] = useState<Circle | null>(null);
   const [rectangle, setRectangle] = useState<Rect | null>(null);
   const [dottedRect, setDottedRect] = useState<Rect | null>(null); 
+  const [dottedAreaX, setDottedAreaX] = useState(175);
+  const [isLeftAligned, setIsLeftAligned] = useState(true);
+  const dottedAreaXRef = useRef(dottedAreaX);
+
+useEffect(() => {
+  dottedAreaXRef.current = dottedAreaX;
+}, [dottedAreaX]);
 
   useEffect(() => {
     if (canvasRef.current) {
@@ -30,17 +37,17 @@ const FabricCanvas: React.FC = () => {
       const circleObj = new Circle({
         radius: 60,
         fill: "white",
-        left: 100,
+        left: 50,
         top: 100,
         selectable: false,
       });
-
+      
       const rectObj = new Rect({
         width: 120,
         height: 80,
         fill: "white",
-        left: 200,
-        top: 150,
+        left: 50,
+        top: 200,
         selectable: false,
       });
 
@@ -71,7 +78,7 @@ const FabricCanvas: React.FC = () => {
   }, []);
 
   const highlightCenterLines = (fabricCanvas: Canvas) => {
-    const canvasCenterX = fabricCanvas.getWidth() / 2;
+    const canvasCenterX = dottedAreaXRef.current;
     const canvasCenterY = fabricCanvas.getHeight() / 2;
 
     fabricCanvas.forEachObject((obj) => {
@@ -79,11 +86,11 @@ const FabricCanvas: React.FC = () => {
         const objCenterX = obj.left! + (obj.width! * obj.scaleX!) / 2;
         const objCenterY = obj.top! + (obj.height! * obj.scaleY!) / 2;
 
-        if (Math.abs(objCenterX - canvasCenterX) < 5) {
+        if (Math.abs(objCenterX - canvasCenterX) < 20) {
           obj.set({ left: canvasCenterX - (obj.width! * obj.scaleX!) / 2 });
         }
 
-        if (Math.abs(objCenterY - canvasCenterY) < 5) {
+        if (Math.abs(objCenterY - canvasCenterY) < 20) {
           obj.set({ top: canvasCenterY - (obj.height! * obj.scaleY!) / 2 });
         }
       }
@@ -251,14 +258,31 @@ const FabricCanvas: React.FC = () => {
   };
 
   const toggleLayout = () => {
-    if (canvas && circle && rectangle) {
-      
-      const randomPosition = () => Math.random() * (canvas.getWidth() - 100);
-      circle.set({ left: randomPosition(), top: randomPosition() });
-      rectangle.set({ left: randomPosition(), top: randomPosition() });
+    if (canvas && circle && rectangle && dottedRect && verticalLine) {
+      const alignmentPosition = isLeftAligned ? 50 : canvas.getWidth() - 150; 
+
+      circle.set({ left: alignmentPosition, top: 20 });
+      rectangle.set({ left: alignmentPosition, top: 180 });
+
+      const canvasCenterX = canvas.getWidth() / 2;
+      const offset = 50;
+      const dottedRectLeftPosition = isLeftAligned
+        ? canvasCenterX + offset - 50
+        : canvasCenterX - 200 - offset;
+  
+      dottedRect.set({
+        left: dottedRectLeftPosition,
+      });
+
+      const dottedRectCenterX = dottedRect.left! + dottedRect.width! / 2;
+      verticalLine.set({
+        x1: dottedRectCenterX,
+        x2: dottedRectCenterX,
+      });
+      setDottedAreaX(dottedRectCenterX);
+      highlightCenterLines(canvas);
+      setIsLeftAligned(!isLeftAligned);
       canvas.renderAll();
-      
-      
     }
   };
 
