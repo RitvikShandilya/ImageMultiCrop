@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { Canvas, FabricImage, Line, Circle, Rect } from "fabric"; // Import from 'fabric' v6 for browser
-import { Button } from "@/components/ui/button"; // Assuming ShadCN button component path
+import { Canvas, FabricImage, Line, Circle, Rect } from "fabric"; 
+import { Button } from "@/components/ui/button"; 
 
 const FabricCanvas: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -11,6 +11,7 @@ const FabricCanvas: React.FC = () => {
   const [horizontalLine, setHorizontalLine] = useState<Line | null>(null);
   const [circle, setCircle] = useState<Circle | null>(null);
   const [rectangle, setRectangle] = useState<Rect | null>(null);
+  const [dottedRect, setDottedRect] = useState<Rect | null>(null); 
 
   useEffect(() => {
     if (canvasRef.current) {
@@ -21,13 +22,11 @@ const FabricCanvas: React.FC = () => {
       });
       setCanvas(fabricCanvas);
 
-      // Draw initial center lines
       const vLine = createVerticalCenterLine(fabricCanvas);
       const hLine = createHorizontalCenterLine(fabricCanvas);
       setVerticalLine(vLine);
       setHorizontalLine(hLine);
 
-      // Add initial circle and rectangle
       const circleObj = new Circle({
         radius: 60,
         fill: "white",
@@ -45,15 +44,13 @@ const FabricCanvas: React.FC = () => {
         selectable: false,
       });
 
+      const dottedRectangle = createDottedCenterRect(fabricCanvas);
+      setDottedRect(dottedRectangle);
       fabricCanvas.add(circleObj);
       fabricCanvas.add(rectObj);
-
       setCircle(circleObj);
       setRectangle(rectObj);
 
-      fabricCanvas.on("object:moving", () => highlightCenterLines(fabricCanvas));
-
-      // Add keydown event listener for backspace deletion
       const handleKeyDown = (event: KeyboardEvent) => {
         if (event.key === "Backspace" || event.key === "Delete") {
           const activeObject = fabricCanvas.getActiveObject();
@@ -66,7 +63,6 @@ const FabricCanvas: React.FC = () => {
 
       window.addEventListener("keydown", handleKeyDown);
 
-      // Clean up on component unmount
       return () => {
         fabricCanvas.dispose();
         window.removeEventListener("keydown", handleKeyDown);
@@ -106,26 +102,28 @@ const FabricCanvas: React.FC = () => {
     return horizontalLine;
   };
 
-  const highlightCenterLines = (fabricCanvas: Canvas) => {
+  const createDottedCenterRect = (fabricCanvas: Canvas) => {
     const canvasCenterX = fabricCanvas.getWidth() / 2;
     const canvasCenterY = fabricCanvas.getHeight() / 2;
 
-    fabricCanvas.forEachObject((obj) => {
-      if (obj instanceof FabricImage) {
-        const objCenterX = obj.left! + (obj.width! * obj.scaleX!) / 2;
-        const objCenterY = obj.top! + (obj.height! * obj.scaleY!) / 2;
+    const rectWidth = 250;
+    const rectHeight = 250;
 
-        if (Math.abs(objCenterX - canvasCenterX) < 5) {
-          obj.set({ left: canvasCenterX - (obj.width! * obj.scaleX!) / 2 });
-        }
-
-        if (Math.abs(objCenterY - canvasCenterY) < 5) {
-          obj.set({ top: canvasCenterY - (obj.height! * obj.scaleY!) / 2 });
-        }
-      }
+    const dottedRect = new Rect({
+      left: canvasCenterX - rectWidth / 2,
+      top: canvasCenterY - rectHeight / 2,
+      width: rectWidth,
+      height: rectHeight,
+      stroke: "black",
+      strokeWidth: 2,
+      fill: "transparent", 
+      strokeDashArray: [5, 5], 
+      selectable: false,
+      evented: false,
     });
 
-    fabricCanvas.renderAll();
+    fabricCanvas.add(dottedRect);
+    return dottedRect;
   };
 
   const addImageToCanvas = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -146,6 +144,29 @@ const FabricCanvas: React.FC = () => {
               const scaleFactor = (canvas.height * 0.4) / imgElement.height;
               imgInstance.scale(scaleFactor);
 
+              if (dottedRect) {
+                const dottedRectBounds = {
+                  left: dottedRect.left!,
+                  top: dottedRect.top!,
+                  right: dottedRect.left! + dottedRect.width!,
+                  bottom: dottedRect.top! + dottedRect.height!,
+                };
+
+                const imgWidth = imgInstance.width! * imgInstance.scaleX!;
+                const imgHeight = imgInstance.height! * imgInstance.scaleY!;
+
+                imgInstance.set({
+                  left: Math.max(
+                    dottedRectBounds.left,
+                    Math.min(100, dottedRectBounds.right - imgWidth)
+                  ),
+                  top: Math.max(
+                    dottedRectBounds.top,
+                    Math.min(100, dottedRectBounds.bottom - imgHeight)
+                  ),
+                });
+              }
+
               canvas.add(imgInstance);
               canvas.setActiveObject(imgInstance);
               canvas.renderAll();
@@ -154,6 +175,19 @@ const FabricCanvas: React.FC = () => {
         };
         reader.readAsDataURL(file);
       });
+    }
+  };
+
+  const updateDottedRectPosition = (fabricCanvas: Canvas) => {
+    if (dottedRect) {
+      const canvasCenterX = fabricCanvas.getWidth() / 2;
+      const canvasCenterY = fabricCanvas.getHeight() / 2;
+
+      dottedRect.set({
+        left: canvasCenterX - 125, 
+        top: canvasCenterY - 125,   
+      });
+      fabricCanvas.renderAll();
     }
   };
 
@@ -168,7 +202,6 @@ const FabricCanvas: React.FC = () => {
       }
       canvas.renderAll();
 
-      // Redraw center lines after resizing the canvas
       if (verticalLine && horizontalLine) {
         canvas.remove(verticalLine);
         canvas.remove(horizontalLine);
@@ -177,15 +210,20 @@ const FabricCanvas: React.FC = () => {
       const hLine = createHorizontalCenterLine(canvas);
       setVerticalLine(vLine);
       setHorizontalLine(hLine);
+
+      updateDottedRectPosition(canvas);
     }
   };
 
   const toggleLayout = () => {
     if (canvas && circle && rectangle) {
+      
       const randomPosition = () => Math.random() * (canvas.getWidth() - 100);
       circle.set({ left: randomPosition(), top: randomPosition() });
       rectangle.set({ left: randomPosition(), top: randomPosition() });
       canvas.renderAll();
+      
+      
     }
   };
 
@@ -204,7 +242,7 @@ const FabricCanvas: React.FC = () => {
       <input
         type="file"
         accept="image/*"
-        multiple // Allow multiple file selection
+        multiple 
         onChange={addImageToCanvas}
         className="border p-2"
       />
