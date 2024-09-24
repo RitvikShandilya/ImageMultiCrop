@@ -178,36 +178,31 @@ const FabricCanvas: React.FC = () => {
               selectable: true,
             });
   
-            if (canvas) {
-              const scaleFactor = (canvas.height * 0.4) / imgElement.height;
+            if (canvas && dottedRect) {
+              // Scale the image to fit within the dotted rectangle
+              const scaleFactor = Math.min(
+                (dottedRect.height! * 0.8) / imgElement.height,
+                (dottedRect.width! * 0.8) / imgElement.width
+              );
               imgInstance.scale(scaleFactor);
   
-              if (dottedRect) {
-                const dottedRectBounds = {
-                  left: dottedRect.left!,
-                  top: dottedRect.top!,
-                  right: dottedRect.left! + dottedRect.width!,
-                  bottom: dottedRect.top! + dottedRect.height!,
-                };
+              // Calculate the center of the dotted rectangle
+              const dottedRectCenterX = dottedRect.left! + dottedRect.width! / 2;
+              const dottedRectCenterY = dottedRect.top! + dottedRect.height! / 2;
   
-                const imgWidth = imgInstance.width! * imgInstance.scaleX!;
-                const imgHeight = imgInstance.height! * imgInstance.scaleY!;
+              // Position the image at the center of the dotted rectangle
+              const imgWidth = imgInstance.width! * imgInstance.scaleX!;
+              const imgHeight = imgInstance.height! * imgInstance.scaleY!;
+              imgInstance.set({
+                left: dottedRectCenterX - imgWidth / 2,
+                top: dottedRectCenterY - imgHeight / 2,
+              });
   
-                imgInstance.set({
-                  left: Math.max(
-                    dottedRectBounds.left,
-                    Math.min(100, dottedRectBounds.right - imgWidth)
-                  ),
-                  top: Math.max(
-                    dottedRectBounds.top,
-                    Math.min(100, dottedRectBounds.bottom - imgHeight)
-                  ),
-                });
-              }
-  
+              // Add image to the canvas
               canvas.add(imgInstance);
               canvas.setActiveObject(imgInstance);
   
+              // Bring other elements to front
               bringToFront(circle, canvas);
               bringToFront(rectangle, canvas);
   
