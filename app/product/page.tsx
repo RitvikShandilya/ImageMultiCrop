@@ -16,9 +16,9 @@ const FabricCanvas: React.FC = () => {
   const [isLeftAligned, setIsLeftAligned] = useState(true);
   const dottedAreaXRef = useRef(dottedAreaX);
 
-useEffect(() => {
-  dottedAreaXRef.current = dottedAreaX;
-}, [dottedAreaX]);
+  useEffect(() => {
+    dottedAreaXRef.current = dottedAreaX;
+  }, [dottedAreaX]);
 
   useEffect(() => {
     if (canvasRef.current) {
@@ -58,24 +58,25 @@ useEffect(() => {
       setCircle(circleObj);
       setRectangle(rectObj);
       fabricCanvas.on("object:moving", () => highlightCenterLines(fabricCanvas));
-      const handleKeyDown = (event: KeyboardEvent) => {
-        if (event.key === "Backspace" || event.key === "Delete") {
-          const activeObject = fabricCanvas.getActiveObject();
-          if (activeObject && activeObject instanceof FabricImage) {
-            fabricCanvas.remove(activeObject);
-            fabricCanvas.renderAll();
-          }
-        }
-      };
 
-      window.addEventListener("keydown", handleKeyDown);
+      window.addEventListener("keydown", handleKeyDown(fabricCanvas));
 
       return () => {
         fabricCanvas.dispose();
-        window.removeEventListener("keydown", handleKeyDown);
+        window.removeEventListener("keydown", handleKeyDown(fabricCanvas));
       };
     }
   }, []);
+
+  const handleKeyDown = (fabricCanvas: Canvas) => (event: KeyboardEvent) => {
+    if (event.key === "Backspace" || event.key === "Delete") {
+      const activeObject = fabricCanvas.getActiveObject();
+      if (activeObject && activeObject instanceof FabricImage) {
+        fabricCanvas.remove(activeObject);
+        fabricCanvas.renderAll();
+      }
+    }
+  };
 
   const highlightCenterLines = (fabricCanvas: Canvas) => {
     const canvasCenterX = dottedAreaXRef.current;
@@ -207,7 +208,6 @@ useEffect(() => {
               canvas.add(imgInstance);
               canvas.setActiveObject(imgInstance);
   
-              // Use bringToFront utility function to bring circle and rectangle to the front
               bringToFront(circle, canvas);
               bringToFront(rectangle, canvas);
   
@@ -286,6 +286,31 @@ useEffect(() => {
     }
   };
 
+  const downloadImage = () => {
+    if (canvas) {
+      // Hide non-image elements
+      const objectsToHide = [circle, rectangle, verticalLine, horizontalLine, dottedRect];
+      objectsToHide.forEach((obj) => obj && obj.set({ visible: false }));
+      canvas.renderAll();
+
+      // Get the data URL of the canvas
+      const dataURL = canvas.toDataURL({
+        format: "png",
+        multiplier: 2, // For higher resolution
+      });
+
+      // Trigger download
+      const link = document.createElement("a");
+      link.href = dataURL;
+      link.download = "canvas_image.png";
+      link.click();
+
+      // Restore visibility
+      objectsToHide.forEach((obj) => obj && obj.set({ visible: true }));
+      canvas.renderAll();
+    }
+  };
+
   return (
     <div className="flex flex-col items-center space-y-4">
       <div className="flex space-x-2">
@@ -296,6 +321,7 @@ useEffect(() => {
           Set 300 x 600 Background
         </Button>
         <Button onClick={toggleLayout}>Toggle Layout</Button>
+        <Button onClick={downloadImage}>Download Image</Button> {/* Added button */}
       </div>
 
       <input
