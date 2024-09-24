@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { Canvas, FabricImage, Line, Circle, Rect } from "fabric"; 
-import { Button } from "@/components/ui/button"; 
+import { Canvas, FabricImage, Line, Circle, Rect, Shadow } from "fabric"; // Added Shadow
+import { Button } from "@/components/ui/button";
 
 const FabricCanvas: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -11,9 +11,10 @@ const FabricCanvas: React.FC = () => {
   const [horizontalLine, setHorizontalLine] = useState<Line | null>(null);
   const [circle, setCircle] = useState<Circle | null>(null);
   const [rectangle, setRectangle] = useState<Rect | null>(null);
-  const [dottedRect, setDottedRect] = useState<Rect | null>(null); 
+  const [dottedRect, setDottedRect] = useState<Rect | null>(null);
   const [dottedAreaX, setDottedAreaX] = useState(175);
   const [isLeftAligned, setIsLeftAligned] = useState(true);
+  const [shadowsEnabled, setShadowsEnabled] = useState(false); // New state for shadows
   const dottedAreaXRef = useRef(dottedAreaX);
 
   useEffect(() => {
@@ -41,7 +42,7 @@ const FabricCanvas: React.FC = () => {
         top: 100,
         selectable: false,
       });
-      
+
       const rectObj = new Rect({
         width: 120,
         height: 80,
@@ -146,8 +147,8 @@ const FabricCanvas: React.FC = () => {
       height: rectHeight,
       stroke: "black",
       strokeWidth: 2,
-      fill: "transparent", 
-      strokeDashArray: [5, 5], 
+      fill: "transparent",
+      strokeDashArray: [5, 5],
       selectable: false,
       evented: false,
     });
@@ -159,8 +160,8 @@ const FabricCanvas: React.FC = () => {
   const bringToFront = (object: any, fabricCanvas: Canvas | null) => {
     if (fabricCanvas && object) {
       fabricCanvas.remove(object); // Remove the object first
-      fabricCanvas.add(object);    // Add it back to the canvas, which places it on top
-      fabricCanvas.renderAll();    // Re-render the canvas
+      fabricCanvas.add(object); // Add it back to the canvas, which places it on top
+      fabricCanvas.renderAll(); // Re-render the canvas
     }
   };
 
@@ -177,7 +178,16 @@ const FabricCanvas: React.FC = () => {
               top: 100,
               selectable: true,
             });
-  
+
+            if (shadowsEnabled) { // Apply shadow if enabled
+              imgInstance.set("shadow", new Shadow({
+                color: "rgba(0,0,0,0.4)", // Dark shadow
+                blur: 50,
+                offsetX: 10,
+                offsetY: 50,
+              }));
+            }
+
             if (canvas && dottedRect) {
               // Scale the image to fit within the dotted rectangle
               const scaleFactor = Math.min(
@@ -185,11 +195,11 @@ const FabricCanvas: React.FC = () => {
                 (dottedRect.width! * 0.8) / imgElement.width
               );
               imgInstance.scale(scaleFactor);
-  
+
               // Calculate the center of the dotted rectangle
               const dottedRectCenterX = dottedRect.left! + dottedRect.width! / 2;
               const dottedRectCenterY = dottedRect.top! + dottedRect.height! / 2;
-  
+
               // Position the image at the center of the dotted rectangle
               const imgWidth = imgInstance.width! * imgInstance.scaleX!;
               const imgHeight = imgInstance.height! * imgInstance.scaleY!;
@@ -197,15 +207,15 @@ const FabricCanvas: React.FC = () => {
                 left: dottedRectCenterX - imgWidth / 2,
                 top: dottedRectCenterY - imgHeight / 2,
               });
-  
+
               // Add image to the canvas
               canvas.add(imgInstance);
               canvas.setActiveObject(imgInstance);
-  
+
               // Bring other elements to front
               bringToFront(circle, canvas);
               bringToFront(rectangle, canvas);
-  
+
               canvas.renderAll();
             }
           };
@@ -221,8 +231,8 @@ const FabricCanvas: React.FC = () => {
       const canvasCenterY = fabricCanvas.getHeight() / 2;
 
       dottedRect.set({
-        left: canvasCenterX - 125, 
-        top: canvasCenterY - 125,   
+        left: canvasCenterX - 125,
+        top: canvasCenterY - 125,
       });
       fabricCanvas.renderAll();
     }
@@ -254,7 +264,7 @@ const FabricCanvas: React.FC = () => {
 
   const toggleLayout = () => {
     if (canvas && circle && rectangle && dottedRect && verticalLine) {
-      const alignmentPosition = isLeftAligned ? 50 : canvas.getWidth() - 150; 
+      const alignmentPosition = isLeftAligned ? 50 : canvas.getWidth() - 150;
 
       circle.set({ left: alignmentPosition, top: 20 });
       rectangle.set({ left: alignmentPosition, top: 180 });
@@ -264,7 +274,7 @@ const FabricCanvas: React.FC = () => {
       const dottedRectLeftPosition = isLeftAligned
         ? canvasCenterX + offset - 50
         : canvasCenterX - 200 - offset;
-  
+
       dottedRect.set({
         left: dottedRectLeftPosition,
       });
@@ -277,6 +287,28 @@ const FabricCanvas: React.FC = () => {
       setDottedAreaX(dottedRectCenterX);
       highlightCenterLines(canvas);
       setIsLeftAligned(!isLeftAligned);
+      canvas.renderAll();
+    }
+  };
+
+  // New function to toggle shadows
+  const toggleShadows = () => {
+    if (canvas) {
+      canvas.getObjects().forEach((obj) => {
+        if (obj instanceof FabricImage) {
+          if (shadowsEnabled) {
+            obj.set("shadow", null);
+          } else {
+            obj.set("shadow", new Shadow({
+              color: "rgba(0,0,0,0.4)", // Dark shadow
+              blur: 50,
+              offsetX: 10,
+              offsetY: 50,
+            }));
+          }
+        }
+      });
+      setShadowsEnabled(!shadowsEnabled);
       canvas.renderAll();
     }
   };
@@ -316,13 +348,14 @@ const FabricCanvas: React.FC = () => {
           Set 300 x 600 Background
         </Button>
         <Button onClick={toggleLayout}>Toggle Layout</Button>
-        <Button onClick={downloadImage}>Download Image</Button> {/* Added button */}
+        <Button onClick={toggleShadows}>Toggle Shadows</Button> {/* Added Toggle Shadows button */}
+        <Button onClick={downloadImage}>Download Image</Button>
       </div>
 
       <input
         type="file"
         accept="image/*"
-        multiple 
+        multiple
         onChange={addImageToCanvas}
         className="border p-2"
       />
